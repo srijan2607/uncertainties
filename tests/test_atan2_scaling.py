@@ -84,6 +84,32 @@ def test_atan2_subnormal_minor_coordinate(swap, sign):
     assert math.isclose(angle.derivatives[variable], expected, rel_tol=1e-14, abs_tol=0)
 
 
+@pytest.mark.parametrize(
+    "y0, x0",
+    [
+        (5e-324, 1e-155),
+        (5e-324, 1e-160),
+        (5e-324, 1e-162),
+        (5e-309, 5e-309),
+        (1e-200, 1e-154),
+        (1e-200, 1e154),
+        (1.7e308, 1.7e308),
+    ],
+)
+def test_atan2_partial_safe_intermediates(y0, x0):
+    from uncertainties.umath_core import fixed_derivatives
+
+    with localcontext() as context:
+        context.prec = 110
+        dx, dy = Decimal.from_float(x0), Decimal.from_float(y0)
+        denominator = dx * dx + dy * dy
+        expected = [float(dx / denominator), float(-dy / denominator)]
+    for derivative, reference in zip(fixed_derivatives["atan2"], expected):
+        assert math.isclose(
+            derivative(y0, x0), reference, rel_tol=1e-14, abs_tol=math.ulp(0.0)
+        )
+
+
 def test_atan2_origin_remains_undefined():
     angle = umath.atan2(ufloat(0, 0.01), ufloat(0, 0.01))
     assert math.isnan(angle.s)

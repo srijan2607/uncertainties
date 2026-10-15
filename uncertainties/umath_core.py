@@ -183,8 +183,14 @@ def _deriv_atan2(y, x):
     scale = max(abs(x), abs(y))
     if not math.isfinite(scale):
         return x / (x**2 + y**2)
-    # Normalize before squaring: the radius squared can overflow or underflow
-    # even when both the derivative and the angular uncertainty are finite.
+    # Keep the direct formula when its denominator is normal: normalizing a
+    # subnormal minor coordinate can otherwise lose precision unnecessarily.
+    # Multiplication (unlike **2) yields inf rather than raising on overflow.
+    radius_squared = x * x + y * y
+    if sys.float_info.min <= radius_squared < math.inf:
+        return x / radius_squared
+    # Normalize only when the squared radius overflows or is subnormal/zero.
+    # Divide by scale last, so a tiny radius does not overflow its reciprocal.
     scaled_x, scaled_y = x / scale, y / scale
     return scaled_x / (scaled_x**2 + scaled_y**2) / scale
 
