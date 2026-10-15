@@ -1,6 +1,7 @@
 """Scale-independent angular uncertainty, with analytical dimensionless oracles."""
 
 import math
+from decimal import Decimal, localcontext
 
 import pytest
 
@@ -62,6 +63,25 @@ def test_unumpy_arctan2_scaled_coordinates():
     numpy.testing.assert_allclose(
         unumpy.std_devs(angles), math.sqrt(2) * 0.12 / 25, rtol=1e-14
     )
+
+
+@pytest.mark.parametrize("swap", [False, True])
+@pytest.mark.parametrize("sign", [-1, 1])
+def test_atan2_subnormal_minor_coordinate(swap, sign):
+    # Normalizing the minor coordinate first rounds it in the subnormal range,
+    # although the resulting partial is normal and the direct formula is safe.
+    minor = sign * math.ulp(0.0)
+    major = 1.23456789e-8
+    y0, x0 = (minor, major) if swap else (major, minor)
+    with localcontext() as context:
+        context.prec = 110
+        dx, dy = Decimal.from_float(x0), Decimal.from_float(y0)
+        denominator = dx * dx + dy * dy
+        expected = float(-dy / denominator if swap else dx / denominator)
+    y, x = ufloat(y0, 1e-10), ufloat(x0, 1e-10)
+    angle = umath.atan2(y, x)
+    variable = x if swap else y
+    assert math.isclose(angle.derivatives[variable], expected, rel_tol=1e-14, abs_tol=0)
 
 
 def test_atan2_origin_remains_undefined():
