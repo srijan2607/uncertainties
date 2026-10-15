@@ -204,6 +204,7 @@ fixed_derivatives = {
     "asin": [lambda x: 1 / math.sqrt(1 - x**2)],
     "asinh": [lambda x: 1 / math.sqrt(1 + x**2)],
     "atan": [lambda x: 1 / (1 + x**2)],
+    # Both partials remain valid for x == 0, except at the undefined origin.
     "atan2": [_deriv_atan2, lambda y, x: -_deriv_atan2(x, y)],
     "atanh": [lambda x: 1 / (1 - x**2)],
     "copysign": [_deriv_copysign, lambda x, y: 0],

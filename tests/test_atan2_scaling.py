@@ -6,6 +6,7 @@ from decimal import Decimal, localcontext
 import pytest
 
 from uncertainties import ufloat, umath
+from uncertainties.umath_core import fixed_derivatives
 
 
 SCALES = [1.0, 1e155, 1e160, 1e200, 1e300, 1e-160, 1e-200, 1e-300]
@@ -23,8 +24,9 @@ def test_atan2_scale_independent_uncertainty(scale, y0, x0):
     dy = x0 / radius_squared
     dx = -y0 / radius_squared
     assert angle.n == math.atan2(y.n, x.n)
-    assert math.isclose(angle.derivatives[y], dy / scale, rel_tol=1e-14, abs_tol=0)
-    assert math.isclose(angle.derivatives[x], dx / scale, rel_tol=1e-14, abs_tol=0)
+    # Test the registered native partials without deprecated derivative access.
+    for partial, expected in zip(fixed_derivatives["atan2"], [dy / scale, dx / scale]):
+        assert math.isclose(partial(y.n, x.n), expected, rel_tol=1e-14, abs_tol=0)
     assert math.isclose(angle.s, math.hypot(dy * 0.03, dx * 0.04), rel_tol=1e-14)
 
 
@@ -35,7 +37,9 @@ def test_atan2_scaled_correlated_coordinates(scale):
     y = scale * (3 - displacement)
     angle = umath.atan2(y, x)
     # d atan2(3-t, 4+2t)/dt at t=0 is (-4 - 6)/25 = -0.4.
-    assert math.isclose(angle.derivatives[displacement], -0.4, rel_tol=1e-14)
+    # A signed observable: adding +0.4*t cancels the first-order dependence.
+    # Checking sigma alone would also accept the incorrect derivative +0.4.
+    assert (angle + 0.4 * displacement).s <= 4e-17
     assert math.isclose(angle.s, 0.004, rel_tol=1e-14)
 
 
@@ -46,8 +50,10 @@ def test_atan2_overflowing_intermediate_radius(coordinate):
     angle = umath.atan2(y, x)
     # The squared radius (1e154) or radius itself (1.7e308) overflows,
     # but both partials and the angular standard deviation are representable.
-    assert math.isclose(angle.derivatives[y], 0.5 / coordinate, rel_tol=1e-14)
-    assert math.isclose(angle.derivatives[x], -0.5 / coordinate, rel_tol=1e-14)
+    for partial, expected in zip(
+        fixed_derivatives["atan2"], [0.5 / coordinate, -0.5 / coordinate]
+    ):
+        assert math.isclose(partial(y.n, x.n), expected, rel_tol=1e-14)
     assert math.isclose(angle.s, math.sqrt(2) * 0.005, rel_tol=1e-14)
 
 
@@ -78,10 +84,10 @@ def test_atan2_subnormal_minor_coordinate(swap, sign):
         dx, dy = Decimal.from_float(x0), Decimal.from_float(y0)
         denominator = dx * dx + dy * dy
         expected = float(-dy / denominator if swap else dx / denominator)
-    y, x = ufloat(y0, 1e-10), ufloat(x0, 1e-10)
-    angle = umath.atan2(y, x)
-    variable = x if swap else y
-    assert math.isclose(angle.derivatives[variable], expected, rel_tol=1e-14, abs_tol=0)
+    # The tiny signed partial can disappear when squared for a variance.
+    # Check it directly, with zero absolute tolerance, rather than sigma alone.
+    partial = fixed_derivatives["atan2"][1 if swap else 0]
+    assert math.isclose(partial(y0, x0), expected, rel_tol=1e-14, abs_tol=0)
 
 
 @pytest.mark.parametrize(
@@ -97,8 +103,6 @@ def test_atan2_subnormal_minor_coordinate(swap, sign):
     ],
 )
 def test_atan2_partial_safe_intermediates(y0, x0):
-    from uncertainties.umath_core import fixed_derivatives
-
     with localcontext() as context:
         context.prec = 110
         dx, dy = Decimal.from_float(x0), Decimal.from_float(y0)
