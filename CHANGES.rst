@@ -1,6 +1,14 @@
 Change Log
 ===================
 
+Unreleased
+----------
+
+Fixes:
+
+- Avoid intermediate overflow and underflow in ``umath.atan2`` derivatives,
+  preserving angular uncertainties for very large or small finite coordinates.
+
 3.2.4   2026-January-9
 -----------------------
 

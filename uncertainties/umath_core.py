@@ -178,6 +178,17 @@ def _deriv_pow_1(x, y):
         return math.log(x) * math.pow(x, y)
 
 
+def _deriv_atan2(y, x):
+    """Partial derivative of atan2(y, x) with respect to y."""
+    scale = max(abs(x), abs(y))
+    if not math.isfinite(scale):
+        return x / (x**2 + y**2)
+    # Normalize before squaring: the radius squared can overflow or underflow
+    # even when both the derivative and the angular uncertainty are finite.
+    scaled_x, scaled_y = x / scale, y / scale
+    return scaled_x / (scaled_x**2 + scaled_y**2) / scale
+
+
 erf_coef = 2 / math.sqrt(math.pi)  # Optimization for erf()
 
 fixed_derivatives = {
@@ -187,10 +198,7 @@ fixed_derivatives = {
     "asin": [lambda x: 1 / math.sqrt(1 - x**2)],
     "asinh": [lambda x: 1 / math.sqrt(1 + x**2)],
     "atan": [lambda x: 1 / (1 + x**2)],
-    "atan2": [
-        lambda y, x: x / (x**2 + y**2),  # Correct for x == 0
-        lambda y, x: -y / (x**2 + y**2),
-    ],  # Correct for x == 0
+    "atan2": [_deriv_atan2, lambda y, x: -_deriv_atan2(x, y)],
     "atanh": [lambda x: 1 / (1 - x**2)],
     "copysign": [_deriv_copysign, lambda x, y: 0],
     "cos": [lambda x: -math.sin(x)],
