@@ -70,7 +70,7 @@ def test_unumpy_arctan2_scaled_coordinates():
 def test_atan2_subnormal_minor_coordinate(swap, sign):
     # Normalizing the minor coordinate first rounds it in the subnormal range,
     # although the resulting partial is normal and the direct formula is safe.
-    minor = sign * math.ulp(0.0)
+    minor = sign * float.fromhex("0x0.0000000000001p-1022")
     major = 1.23456789e-8
     y0, x0 = (minor, major) if swap else (major, minor)
     with localcontext() as context:
@@ -106,7 +106,7 @@ def test_atan2_partial_safe_intermediates(y0, x0):
         expected = [float(dx / denominator), float(-dy / denominator)]
     for derivative, reference in zip(fixed_derivatives["atan2"], expected):
         assert math.isclose(
-            derivative(y0, x0), reference, rel_tol=1e-14, abs_tol=math.ulp(0.0)
+            derivative(y0, x0), reference, rel_tol=1e-14, abs_tol=5e-324
         )
 
 
